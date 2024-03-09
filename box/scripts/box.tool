@@ -634,6 +634,18 @@ cgroup_cpuset() {
 ip_port=$(if [ "${bin_name}" = "clash" ]; then busybox awk '/external-controller:/ {print $2}' "${clash_config}"; else find /data/adb/box/sing-box/ -maxdepth 1 -type f -name "*.json" -exec busybox awk -F':' '/experimental/,/\}/' {} \; | sed -n 's/.*"external_controller": "\(.*\)",/\1/p'; fi;)
 secret=""
 
+bond1() {
+  su -mm -c "cmd wifi force-low-latency-mode enabled"
+  su -mm -c "sysctl -w net.ipv4.tcp_low_latency=1"
+  su -mm -c "ip link set dev wlan0 txqueuelen 4000"
+}
+
+bond0() {
+  su -mm -c "cmd wifi force-low-latency-mode disabled"
+  su -mm -c "sysctl -w net.ipv4.tcp_low_latency=0"
+  su -mm -c "ip link set dev wlan0 txqueuelen 3000"
+}
+
 case "$1" in
   check)
     check
@@ -655,13 +667,14 @@ case "$1" in
         ;;
     esac
     ;;
+  bond0|bond1)
+    $1
+    ;;
   geosub)
     upsubs
     upgeox
     if [ -f "${box_pid}" ]; then
-      if kill -0 "$(<"${box_pid}" 2>/dev/null)"; then
-        reload
-      fi
+      kill -0 "$(<"${box_pid}" 2>/dev/null)" && reload
     fi
     ;;
   geox|subs)
@@ -672,9 +685,7 @@ case "$1" in
       [ "${bin_name}" != "clash" ] && exit 1
     fi
     if [ -f "${box_pid}" ]; then
-      if kill -0 "$(<"${box_pid}" 2>/dev/null)"; then
-        reload
-      fi
+      kill -0 "$(<"${box_pid}" 2>/dev/null)" && reload
     fi
     ;;
   upkernel)
@@ -701,6 +712,6 @@ case "$1" in
     ;;
   *)
     echo "${red}$0 $1 no found${normal}"
-    echo "${yellow}usage${normal}: ${green}$0${normal} {${yellow}check|memcg|cpuset|blkio|geosub|geox|subs|upkernel|upxui|upyq|upcurl|reload|all${normal}}"
+    echo "${yellow}usage${normal}: ${green}$0${normal} {${yellow}check|memcg|cpuset|blkio|geosub|geox|subs|upkernel|upxui|upyq|upcurl|reload|bond0|bond1|all${normal}}"
     ;;
 esac
